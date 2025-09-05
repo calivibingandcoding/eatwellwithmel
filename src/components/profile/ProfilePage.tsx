@@ -16,7 +16,6 @@ import {
   DialogActions
 } from '@mui/material';
 import {
-  Person,
   Download,
   Settings,
   Security,

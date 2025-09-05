@@ -9,8 +9,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
-  Fab
+  ListItemSecondaryAction
 } from '@mui/material';
 import {
   Restaurant,
@@ -19,7 +18,6 @@ import {
   FitnessCenter,
   Mood,
   Warning,
-  Add,
   Edit,
   Delete
 } from '@mui/icons-material';
