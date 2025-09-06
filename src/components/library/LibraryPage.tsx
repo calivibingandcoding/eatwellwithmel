@@ -54,7 +54,7 @@ export const LibraryPage: React.FC = () => {
   const [newItem, setNewItem] = useState({ name: '', type: 'food' as const });
 
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([
-    { id: '1', name: 'Oatmeal', type: 'food', isFavorite: true, usageCount: 15 },
+    { id: '1', name: 'Porridge', type: 'food', isFavorite: true, usageCount: 15 },
     { id: '2', name: 'Almond Milk', type: 'drink', isFavorite: true, usageCount: 12 },
     { id: '3', name: 'Probiotics', type: 'supplement', isFavorite: false, usageCount: 8 },
     { id: '4', name: 'Morning Yoga', type: 'exercise', isFavorite: true, usageCount: 20 },

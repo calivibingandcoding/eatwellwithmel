@@ -22,14 +22,25 @@ export interface Clinician extends User {
   patients: string[];
 }
 
+export interface Ingredient {
+  id: string;
+  name: string;
+  portion: string;
+  brandName?: string;
+}
+
 export interface FoodEntry {
   id: string;
   userId: string;
-  foodItem: string;
-  brandName?: string;
-  portion: string;
+  mealLabel?: string; // Custom meal name like "Avocado toast"
+  ingredients: Ingredient[];
   timestamp: Date;
   mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  
+  // Legacy support for existing single-food entries
+  foodItem?: string;
+  brandName?: string;
+  portion?: string;
   customFood?: boolean;
 }
 

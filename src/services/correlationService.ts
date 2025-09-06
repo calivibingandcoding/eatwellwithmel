@@ -5,7 +5,7 @@ import {
   SymptomEntry, 
   TriggerCorrelation 
 } from '../types';
-import { differenceInHours, parseISO } from 'date-fns';
+import { differenceInHours } from 'date-fns';
 
 export interface CorrelationAnalysis {
   triggers: TriggerCorrelation[];
@@ -17,7 +17,7 @@ export interface CorrelationAnalysis {
   symptomEpisodes: number;
 }
 
-class CorrelationService {
+export class CorrelationService {
   private readonly CORRELATION_WINDOW_HOURS = 6; // Look for correlations within 6 hours before symptoms
 
   analyzeCorrelations(
@@ -60,7 +60,7 @@ class CorrelationService {
     foodAndDrinkEntries: DiaryEntry[],
     symptomEntries: DiaryEntry[]
   ): TriggerCorrelation[] {
-    const itemTracker = new Map<string, {
+    const ingredientTracker = new Map<string, {
       totalExposures: number;
       symptomOccurrences: number;
       severitySum: number;
@@ -68,22 +68,58 @@ class CorrelationService {
       type: 'food' | 'drink';
     }>();
 
-    // Count total exposures for each food/drink item
+    // Count total exposures for each ingredient/item
     foodAndDrinkEntries.forEach(entry => {
-      const itemName = this.getItemName(entry);
-      const itemType = entry.type as 'food' | 'drink';
       
-      if (!itemTracker.has(itemName)) {
-        itemTracker.set(itemName, {
-          totalExposures: 0,
-          symptomOccurrences: 0,
-          severitySum: 0,
-          severityCount: 0,
-          type: itemType
-        });
+      if (entry.type === 'food') {
+        const foodData = entry.data as FoodEntry;
+        
+        // For ingredient-based entries, track each ingredient separately
+        if (foodData.ingredients && foodData.ingredients.length > 0) {
+          foodData.ingredients.forEach(ingredient => {
+            const ingredientName = ingredient.name;
+            
+            if (!ingredientTracker.has(ingredientName)) {
+              ingredientTracker.set(ingredientName, {
+                totalExposures: 0,
+                symptomOccurrences: 0,
+                severitySum: 0,
+                severityCount: 0,
+                type: 'food'
+              });
+            }
+            
+            ingredientTracker.get(ingredientName)!.totalExposures++;
+          });
+        } else if (foodData.foodItem) {
+          // Legacy support for single food entries
+          if (!ingredientTracker.has(foodData.foodItem)) {
+            ingredientTracker.set(foodData.foodItem, {
+              totalExposures: 0,
+              symptomOccurrences: 0,
+              severitySum: 0,
+              severityCount: 0,
+              type: 'food'
+            });
+          }
+          ingredientTracker.get(foodData.foodItem)!.totalExposures++;
+        }
+      } else if (entry.type === 'drink') {
+        const drinkData = entry.data as DrinkEntry;
+        const drinkName = drinkData.drinkItem;
+        
+        if (!ingredientTracker.has(drinkName)) {
+          ingredientTracker.set(drinkName, {
+            totalExposures: 0,
+            symptomOccurrences: 0,
+            severitySum: 0,
+            severityCount: 0,
+            type: 'drink'
+          });
+        }
+        
+        ingredientTracker.get(drinkName)!.totalExposures++;
       }
-      
-      itemTracker.get(itemName)!.totalExposures++;
     });
 
     // For each symptom episode, check for potential triggers within the time window
@@ -92,22 +128,36 @@ class CorrelationService {
       const symptomTime = symptomEntry.timestamp;
 
       // Find all food/drink entries within the correlation window before this symptom
-      const potentialTriggers = foodAndDrinkEntries.filter(foodEntry => {
+      const potentialTriggerEntries = foodAndDrinkEntries.filter(foodEntry => {
         const hoursDiff = differenceInHours(symptomTime, foodEntry.timestamp);
         return hoursDiff >= 0 && hoursDiff <= this.CORRELATION_WINDOW_HOURS;
       });
 
-      // Track which items were consumed before this symptom
-      const triggersForThisSymptom = new Set<string>();
+      // Track which ingredients were consumed before this symptom
+      const triggeredIngredients = new Set<string>();
       
-      potentialTriggers.forEach(triggerEntry => {
-        const itemName = this.getItemName(triggerEntry);
-        triggersForThisSymptom.add(itemName);
+      potentialTriggerEntries.forEach(triggerEntry => {
+        if (triggerEntry.type === 'food') {
+          const foodData = triggerEntry.data as FoodEntry;
+          
+          // For ingredient-based entries, add each ingredient
+          if (foodData.ingredients && foodData.ingredients.length > 0) {
+            foodData.ingredients.forEach(ingredient => {
+              triggeredIngredients.add(ingredient.name);
+            });
+          } else if (foodData.foodItem) {
+            // Legacy support
+            triggeredIngredients.add(foodData.foodItem);
+          }
+        } else if (triggerEntry.type === 'drink') {
+          const drinkData = triggerEntry.data as DrinkEntry;
+          triggeredIngredients.add(drinkData.drinkItem);
+        }
       });
 
-      // Update correlation counts for each trigger
-      triggersForThisSymptom.forEach(itemName => {
-        const tracker = itemTracker.get(itemName);
+      // Update correlation counts for each triggered ingredient
+      triggeredIngredients.forEach(ingredientName => {
+        const tracker = ingredientTracker.get(ingredientName);
         if (tracker) {
           tracker.symptomOccurrences++;
           tracker.severitySum += symptomData.severity;
@@ -116,11 +166,11 @@ class CorrelationService {
       });
     });
 
-    // Convert to TriggerCorrelation objects and filter out items with low exposure
+    // Convert to TriggerCorrelation objects and filter out ingredients with low exposure
     const correlations: TriggerCorrelation[] = [];
     
-    itemTracker.forEach((tracker, itemName) => {
-      // Only include items that have been consumed at least 3 times
+    ingredientTracker.forEach((tracker, ingredientName) => {
+      // Only include ingredients that have been consumed at least 3 times
       if (tracker.totalExposures >= 3) {
         const correlationPercentage = Math.round(
           (tracker.symptomOccurrences / tracker.totalExposures) * 100
@@ -131,7 +181,7 @@ class CorrelationService {
           : undefined;
 
         correlations.push({
-          item: itemName,
+          item: ingredientName,
           itemType: tracker.type,
           symptom: 'any', // This would be more specific in a real implementation
           correlationPercentage,
@@ -149,7 +199,12 @@ class CorrelationService {
     switch (entry.type) {
       case 'food':
         const foodData = entry.data as FoodEntry;
-        return foodData.foodItem;
+        // For new ingredient-based entries, use meal label or first ingredient
+        if (foodData.ingredients && foodData.ingredients.length > 0) {
+          return foodData.mealLabel || foodData.ingredients[0].name;
+        }
+        // Legacy support for single food entries
+        return foodData.foodItem || 'Unknown Food';
       case 'drink':
         const drinkData = entry.data as DrinkEntry;
         return drinkData.drinkItem;

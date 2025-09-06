@@ -32,7 +32,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { BristolStoolChart } from '../../types';
+import { BristolStoolChart, Ingredient, FoodEntry } from '../../types';
 import { searchFoods, searchDrinks, searchSupplements, searchExercises } from '../../data/foodDatabase';
 
 type EntryType = 'food' | 'drink' | 'supplement' | 'exercise' | 'wellness' | 'symptom' | 'bowel_movement';
@@ -41,6 +41,8 @@ export const AddEntryPage: React.FC = () => {
   const [selectedType, setSelectedType] = useState<EntryType | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [mealIngredients, setMealIngredients] = useState<Ingredient[]>([]);
+  const [currentIngredient, setCurrentIngredient] = useState({ name: '', portion: '', brandName: '' });
 
   const entryTypes = [
     { type: 'food', label: 'Food', icon: Restaurant, color: '#4caf50' },
@@ -62,10 +64,34 @@ export const AddEntryPage: React.FC = () => {
     setDialogOpen(false);
     setSelectedType(null);
     setFormData({});
+    setMealIngredients([]);
+    setCurrentIngredient({ name: '', portion: '', brandName: '' });
   };
 
   const handleSave = () => {
-    console.log('Saving entry:', { type: selectedType, ...formData });
+    if (selectedType === 'food') {
+      if (mealIngredients.length === 0) {
+        alert('Please add at least one ingredient to the meal');
+        return;
+      }
+      if (!formData.mealType) {
+        alert('Please select a meal type');
+        return;
+      }
+      
+      const foodEntry: Partial<FoodEntry> = {
+        userId: 'current-user', // This would come from auth context
+        mealLabel: formData.mealLabel || undefined,
+        ingredients: mealIngredients,
+        timestamp: formData.timestamp || new Date(),
+        mealType: formData.mealType
+      };
+      
+      console.log('Saving food entry:', foodEntry);
+    } else {
+      console.log('Saving entry:', { type: selectedType, ...formData });
+    }
+    
     // In production, this would save to the database
     handleClose();
   };
@@ -75,84 +101,23 @@ export const AddEntryPage: React.FC = () => {
       case 'food':
         return (
           <>
-            <Autocomplete
-              freeSolo
-              options={searchFoods(formData.searchQuery || '', 10)}
-              getOptionLabel={(option) => typeof option === 'string' ? option : option.name}
-              value={formData.selectedFood || null}
-              onChange={(_, value) => {
-                const foodItem = typeof value === 'string' ? value : value?.name || '';
-                const commonSizes = typeof value === 'object' && value?.commonSizes ? value.commonSizes : [];
-                setFormData({ 
-                  ...formData, 
-                  foodItem,
-                  selectedFood: value,
-                  commonSizes
-                });
-              }}
-              onInputChange={(_, value) => {
-                setFormData({ ...formData, searchQuery: value, foodItem: value });
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  label="Search Food Item"
-                  margin="normal"
-                  required
-                  placeholder="Start typing to search..."
-                />
-              )}
-              renderOption={(props, option) => (
-                <ListItem {...props} key={option.id}>
-                  <ListItemText
-                    primary={option.name}
-                    secondary={option.category}
-                  />
-                </ListItem>
-              )}
-            />
-            {formData.commonSizes && formData.commonSizes.length > 0 && (
-              <Box sx={{ mt: 2, mb: 1 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Common portions:
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {formData.commonSizes.map((size: string) => (
-                    <Chip
-                      key={size}
-                      label={size}
-                      onClick={() => setFormData({ ...formData, portion: size })}
-                      variant="outlined"
-                      size="small"
-                      sx={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-            )}
             <TextField
               fullWidth
-              label="Portion/Amount"
-              value={formData.portion || ''}
-              onChange={(e) => setFormData({ ...formData, portion: e.target.value })}
+              label="Custom Meal Name (optional)"
+              value={formData.mealLabel || ''}
+              onChange={(e) => setFormData({ ...formData, mealLabel: e.target.value })}
               margin="normal"
-              required
-              placeholder="e.g., 1 cup, 2 slices, 100g"
+              placeholder="e.g., Avocado toast, Chicken curry"
+              helperText="Give your meal a custom name to easily identify it"
             />
-            <TextField
-              fullWidth
-              label="Brand Name (optional)"
-              value={formData.brandName || ''}
-              onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-              margin="normal"
-            />
+            
             <FormControl fullWidth margin="normal">
               <InputLabel>Meal Type</InputLabel>
               <Select
                 value={formData.mealType || ''}
                 label="Meal Type"
                 onChange={(e) => setFormData({ ...formData, mealType: e.target.value })}
+                required
               >
                 <MenuItem value="breakfast">Breakfast</MenuItem>
                 <MenuItem value="lunch">Lunch</MenuItem>
@@ -160,6 +125,129 @@ export const AddEntryPage: React.FC = () => {
                 <MenuItem value="snack">Snack</MenuItem>
               </Select>
             </FormControl>
+
+            <Typography variant="h6" sx={{ mt: 3, mb: 2, color: '#fa7888' }}>
+              Add Ingredients
+            </Typography>
+            
+            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, mb: 2 }}>
+              <Autocomplete
+                freeSolo
+                options={searchFoods(currentIngredient.name || '', 10)}
+                getOptionLabel={(option) => typeof option === 'string' ? option : option.name}
+                value={null}
+                onChange={(_, value) => {
+                  const foodName = typeof value === 'string' ? value : value?.name || '';
+                  const commonSizes = typeof value === 'object' && value?.commonSizes ? value.commonSizes : [];
+                  setCurrentIngredient({ 
+                    ...currentIngredient, 
+                    name: foodName
+                  });
+                  setFormData({ ...formData, commonSizes });
+                }}
+                onInputChange={(_, value) => {
+                  setCurrentIngredient({ ...currentIngredient, name: value });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    label="Search Food Item"
+                    placeholder="Start typing to search..."
+                    size="small"
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <ListItem {...props} key={option.id}>
+                    <ListItemText
+                      primary={option.name}
+                      secondary={option.category}
+                    />
+                  </ListItem>
+                )}
+              />
+              
+              {formData.commonSizes && formData.commonSizes.length > 0 && (
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Common portions:
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {formData.commonSizes.map((size: string) => (
+                      <Chip
+                        key={size}
+                        label={size}
+                        onClick={() => setCurrentIngredient({ ...currentIngredient, portion: size })}
+                        variant="outlined"
+                        size="small"
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              
+              <TextField
+                fullWidth
+                label="Portion/Amount"
+                value={currentIngredient.portion}
+                onChange={(e) => setCurrentIngredient({ ...currentIngredient, portion: e.target.value })}
+                margin="normal"
+                size="small"
+                placeholder="e.g., 1 cup, 2 slices, 100g"
+              />
+              
+              <TextField
+                fullWidth
+                label="Brand Name (optional)"
+                value={currentIngredient.brandName}
+                onChange={(e) => setCurrentIngredient({ ...currentIngredient, brandName: e.target.value })}
+                margin="normal"
+                size="small"
+              />
+              
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (currentIngredient.name && currentIngredient.portion) {
+                    const newIngredient: Ingredient = {
+                      id: Date.now().toString(),
+                      name: currentIngredient.name,
+                      portion: currentIngredient.portion,
+                      brandName: currentIngredient.brandName || undefined
+                    };
+                    setMealIngredients([...mealIngredients, newIngredient]);
+                    setCurrentIngredient({ name: '', portion: '', brandName: '' });
+                    setFormData({ ...formData, commonSizes: [] });
+                  }
+                }}
+                disabled={!currentIngredient.name || !currentIngredient.portion}
+                sx={{ mt: 2, color: '#fa7888', borderColor: '#fa7888' }}
+                fullWidth
+              >
+                Add Ingredient to Meal
+              </Button>
+            </Box>
+
+            {mealIngredients.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Ingredients in this meal ({mealIngredients.length}):
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                  {mealIngredients.map((ingredient, index) => (
+                    <Chip
+                      key={ingredient.id}
+                      label={`${ingredient.name} (${ingredient.portion})`}
+                      onDelete={() => {
+                        setMealIngredients(mealIngredients.filter((_, i) => i !== index));
+                      }}
+                      sx={{ backgroundColor: '#f5f5f5' }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
           </>
         );
 
@@ -561,6 +649,7 @@ export const AddEntryPage: React.FC = () => {
               onClick={handleSave} 
               variant="contained"
               sx={{ backgroundColor: '#fa7888' }}
+              disabled={selectedType === 'food' && (mealIngredients.length === 0 || !formData.mealType)}
             >
               Save Entry
             </Button>

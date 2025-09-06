@@ -9,7 +9,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  Collapse
 } from '@mui/material';
 import {
   Restaurant,
@@ -19,9 +20,12 @@ import {
   Mood,
   Warning,
   Edit,
-  Delete
+  Delete,
+  ExpandMore,
+  ExpandLess
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { FoodEntry } from '../../types';
 
 interface DiaryEntryItem {
   id: string;
@@ -30,16 +34,50 @@ interface DiaryEntryItem {
   title: string;
   details: string;
   severity?: number;
+  foodEntry?: FoodEntry; // For food entries with ingredients
 }
 
 export const DiaryPage: React.FC = () => {
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  
   const [entries] = useState<DiaryEntryItem[]>([
     {
       id: '1',
       type: 'food',
       timestamp: new Date(),
       title: 'Breakfast',
-      details: 'Oatmeal with berries, Almond milk'
+      details: 'Avocado toast',
+      foodEntry: {
+        id: '1',
+        userId: 'user1',
+        mealLabel: 'Avocado toast',
+        ingredients: [
+          { id: 'ing1', name: 'Bread', portion: '2 slices', brandName: 'Hovis' },
+          { id: 'ing2', name: 'Avocado', portion: '1/2 avocado' },
+          { id: 'ing3', name: 'Eggs', portion: '2 eggs' },
+          { id: 'ing4', name: 'Pumpkin seeds', portion: '1 tbsp' }
+        ],
+        timestamp: new Date(),
+        mealType: 'breakfast' as const
+      }
+    },
+    {
+      id: '1b',
+      type: 'food',
+      timestamp: new Date(Date.now() - 30 * 60 * 1000),
+      title: 'Breakfast',
+      details: 'Porridge with berries, Almond milk',
+      foodEntry: {
+        id: '1b',
+        userId: 'user1',
+        ingredients: [
+          { id: 'ing5', name: 'Porridge', portion: '1 bowl' },
+          { id: 'ing6', name: 'Berries (Mixed)', portion: '1/2 cup' },
+          { id: 'ing7', name: 'Almond Milk', portion: '1/4 cup' }
+        ],
+        timestamp: new Date(Date.now() - 30 * 60 * 1000),
+        mealType: 'breakfast' as const
+      }
     },
     {
       id: '2',
@@ -95,6 +133,128 @@ export const DiaryPage: React.FC = () => {
         return '#f44336';
       default:
         return '#757575';
+    }
+  };
+
+  const toggleExpanded = (entryId: string) => {
+    const newExpanded = new Set(expandedEntries);
+    if (newExpanded.has(entryId)) {
+      newExpanded.delete(entryId);
+    } else {
+      newExpanded.add(entryId);
+    }
+    setExpandedEntries(newExpanded);
+  };
+
+  const renderFoodDetails = (entry: DiaryEntryItem) => {
+    if (entry.type !== 'food' || !entry.foodEntry) {
+      return entry.details;
+    }
+    
+    const { foodEntry } = entry;
+    const hasMultipleIngredients = foodEntry.ingredients.length > 1;
+    const isExpanded = expandedEntries.has(entry.id);
+    
+    if (foodEntry.mealLabel) {
+      return (
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {foodEntry.mealLabel}
+            </Typography>
+            {hasMultipleIngredients && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpanded(entry.id);
+                }}
+                sx={{ color: '#c27b70' }}
+              >
+                {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+              </IconButton>
+            )}
+          </Box>
+          
+          <Collapse in={isExpanded}>
+            <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid #f0f0f0' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
+                Ingredients:
+              </Typography>
+              {foodEntry.ingredients.map((ingredient, index) => (
+                <Box key={ingredient.id} sx={{ mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    • {ingredient.name} ({ingredient.portion})
+                    {ingredient.brandName && ` - ${ingredient.brandName}`}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Collapse>
+        </Box>
+      );
+    } else {
+      // No custom meal label, show ingredients directly
+      if (hasMultipleIngredients && !isExpanded) {
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {foodEntry.ingredients.length} ingredients
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpanded(entry.id);
+              }}
+              sx={{ color: '#c27b70' }}
+            >
+              <ExpandMore fontSize="small" />
+            </IconButton>
+          </Box>
+        );
+      } else if (hasMultipleIngredients && isExpanded) {
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {foodEntry.ingredients.length} ingredients
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpanded(entry.id);
+                }}
+                sx={{ color: '#c27b70' }}
+              >
+                <ExpandLess fontSize="small" />
+              </IconButton>
+            </Box>
+            <Collapse in={isExpanded}>
+              <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid #f0f0f0' }}>
+                {foodEntry.ingredients.map((ingredient, index) => (
+                  <Box key={ingredient.id} sx={{ mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      • {ingredient.name} ({ingredient.portion})
+                      {ingredient.brandName && ` - ${ingredient.brandName}`}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Collapse>
+          </Box>
+        );
+      } else {
+        // Single ingredient, show directly
+        const ingredient = foodEntry.ingredients[0];
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {ingredient.name} ({ingredient.portion})
+            {ingredient.brandName && ` - ${ingredient.brandName}`}
+          </Typography>
+        );
+      }
     }
   };
 
@@ -174,9 +334,12 @@ export const DiaryPage: React.FC = () => {
                           }
                           secondary={
                             <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                {entry.details}
-                              </Typography>
+                              {entry.type === 'food' && entry.foodEntry ? 
+                                renderFoodDetails(entry) : 
+                                <Typography variant="body2" color="text.secondary">
+                                  {entry.details}
+                                </Typography>
+                              }
                               <Typography variant="caption" color="text.secondary">
                                 {format(entry.timestamp, 'h:mm a')}
                               </Typography>

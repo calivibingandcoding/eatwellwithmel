@@ -28,7 +28,7 @@ export const foodDatabase: FoodItem[] = [
   // Grains & Cereals
   { id: 'f1', name: 'White Bread', category: 'Grains', commonSizes: ['1 slice', '2 slices', '1 piece'] },
   { id: 'f2', name: 'Brown Bread', category: 'Grains', commonSizes: ['1 slice', '2 slices', '1 piece'] },
-  { id: 'f3', name: 'Oatmeal', category: 'Grains', commonSizes: ['1/2 cup dry', '1 cup cooked', '1 bowl'] },
+  { id: 'f3', name: 'Porridge', category: 'Grains', commonSizes: ['1/2 cup dry', '1 cup cooked', '1 bowl'] },
   { id: 'f4', name: 'White Rice', category: 'Grains', commonSizes: ['1/2 cup', '1 cup', '1 bowl'] },
   { id: 'f5', name: 'Brown Rice', category: 'Grains', commonSizes: ['1/2 cup', '1 cup', '1 bowl'] },
   { id: 'f6', name: 'Pasta', category: 'Grains', commonSizes: ['1/2 cup', '1 cup', '1 bowl'] },
